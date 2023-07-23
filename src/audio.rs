@@ -23,8 +23,8 @@ pub const DMA_BUFFER_SIZE: usize = BLOCK_SIZE_MAX * 2 * 2;
 
 pub type DmaBuffer = [u32; DMA_BUFFER_SIZE];
 
-const START_OF_DRAM2: u32 = 0x30000000;
-const DMA_MEM_SIZE: usize = 32 * 1024;
+pub const START_OF_DRAM2: u32 = 0x30000000;
+pub const DMA_MEM_SIZE: usize = 32 * 1024;
 
 #[link_section = ".sram1_bss"]
 #[no_mangle]
@@ -139,12 +139,7 @@ impl Audio {
         i2c_sda: gpiob::PB11<Analog>,
 
         clocks: &rcc::CoreClocks,
-        mpu: &mut cortex_m::peripheral::MPU,
-        scb: &mut cortex_m::peripheral::SCB,
     ) -> Self {
-        info!("Setup up DMA...");
-        crate::mpu::init_dma(mpu, scb, START_OF_DRAM2 as *mut u32, DMA_MEM_SIZE);
-
         let dma1_streams = dma::dma::StreamsTuple::new(dma1_d, dma1_p);
 
         let rx_buffer: &'static mut [u32; DMA_BUFFER_SIZE] = unsafe { &mut RX_BUFFER };

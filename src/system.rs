@@ -202,6 +202,14 @@ impl System {
         )
         .into();
 
+        info!("Setup up Audio DMA...");
+        crate::mpu::init_dma(
+            &mut core.MPU,
+            &mut core.SCB,
+            audio::START_OF_DRAM2 as *mut u32,
+            audio::DMA_MEM_SIZE,
+        );
+
         info!("Setup up Audio...");
         let audio = Audio::new(
             device.DMA1,
@@ -218,8 +226,6 @@ impl System {
             gpioh.ph4,
             gpiob.pb11,
             &ccdr.clocks,
-            &mut core.MPU,
-            &mut core.SCB,
         );
 
         // Setup GPIOs
