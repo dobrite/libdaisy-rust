@@ -16,7 +16,13 @@ use stm32h7xx_hal::{
 use crate::{audio::Audio, *};
 
 const START_OF_DRAM2: u32 = 0x30000000;
-const DMA_MEM_SIZE: usize = 32 * 1024;
+// audio input buffer:
+// 1_024 byte block size * 2 (stereo) * 2 (circular) * 4 (4 bytes in u32)
+// audio output buffer:
+// 1_024 byte block size * 2 (stereo) * 2 (circular) * 4 (4 bytes in u32)
+// adc dma 16 channels * 2 (2 bytes for u16)
+// total: 32_800 bytes rounded up to next power of 2
+const DMA_MEM_SIZE: usize = 65_536;
 
 const HSE_CLOCK_MHZ: MegaHertz = MegaHertz::from_raw(16);
 const HCLK_MHZ: MegaHertz = MegaHertz::from_raw(200);
@@ -39,12 +45,11 @@ const PLL3_Q_HZ: Hertz = Hertz::from_raw(PLL3_P_HZ.raw());
 const PLL3_R_HZ: Hertz = Hertz::from_raw(PLL3_P_HZ.raw());
 
 pub struct System {
+    pub adc: crate::adc::Adc,
     pub gpio: crate::gpio::GPIO,
     pub audio: audio::Audio,
     pub exti: stm32::EXTI,
     pub syscfg: stm32::SYSCFG,
-    pub adc1: adc::Adc<stm32::ADC1, adc::Disabled>,
-    pub adc2: adc::Adc<stm32::ADC2, adc::Disabled>,
     pub timer2: Timer<TIM2>,
     pub sdram: &'static mut [f32],
     pub flash: crate::flash::Flash,
@@ -110,7 +115,7 @@ impl System {
         // log_clocks(&ccdr);
         let mut delay = Delay::new(core.SYST, ccdr.clocks);
         // Setup ADCs
-        let (adc1, adc2) = adc::adc12(
+        let (adc1, _adc2) = adc::adc12(
             device.ADC1,
             device.ADC2,
             4.MHz(),
@@ -270,6 +275,8 @@ impl System {
             Some(gpiob.pb15),
         );
 
+        let adc = crate::adc::Adc::new(adc1, dma1_streams.2);
+
         // Setup cache
         Self::init_cache(&mut core.SCB, &mut core.CPUID);
 
@@ -289,12 +296,11 @@ impl System {
         );
 
         System {
+            adc,
             gpio,
             audio,
             exti: device.EXTI,
             syscfg: device.SYSCFG,
-            adc1,
-            adc2,
             timer2,
             sdram,
             flash,
